@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>Realistic 3D Animal Simulation Environment</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <!-- OrbitControls from an alternative CDN path for compatibility -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
   <style>
@@ -41,10 +40,10 @@
       constructor(size) {
         this.size = size;
         this.simplex = new SimplexNoise();
-        this.map = Array.from({ length: size }, () => Array(size).fill(0).map(() => Math.random() * 10));
       }
 
       getHeight(x, y) {
+        // Generate height using noise for realistic terrain
         return this.simplex.noise2D(x / 10, y / 10) * 5;
       }
     }
@@ -61,7 +60,6 @@
       }
 
       createMesh() {
-        // Create body
         const bodyGeometry = new THREE.SphereGeometry(0.5, 16, 16);
         const bodyMaterial = new THREE.MeshPhongMaterial({ color: this.getRandomColor() });
         this.mesh = new THREE.Group();
@@ -69,7 +67,6 @@
         const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
         this.mesh.add(body);
 
-        // Create head
         const headGeometry = new THREE.SphereGeometry(0.3, 16, 16);
         const head = new THREE.Mesh(headGeometry, bodyMaterial);
         head.position.set(0.5, 0.2, 0);
@@ -99,14 +96,12 @@
         this.position[0] += Math.cos(angle) * speed * delta;
         this.position[1] += Math.sin(angle) * speed * delta;
         
-        // Wrap around boundaries
         this.position = this.position.map(pos => {
           if (pos < 0) pos += this.environment.size;
           if (pos >= this.environment.size) pos -= this.environment.size;
           return pos;
         });
         
-        // Random rotation changes
         this.rotation += (Math.random() - 0.5) * delta;
       }
     }
@@ -124,13 +119,11 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.getElementById("canvasContainer").appendChild(renderer.domElement);
 
-      // Add orbit controls
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
       controls.update();
 
-      // Lighting
       const light = new THREE.DirectionalLight(0xffffff, 1);
       light.position.set(10, 20, 10);
       light.castShadow = true;
@@ -150,12 +143,12 @@
 
     function createTerrain() {
       const geometry = new THREE.PlaneGeometry(env.size, env.size, env.size - 1, env.size - 1);
-      const vertices = geometry.attributes.position.array;
+      const positions = geometry.attributes.position.array;
 
-      for (let i = 0; i < vertices.length; i += 3) {
-        const x = vertices[i];
-        const z = vertices[i + 1];
-        vertices[i + 2] = env.getHeight(x, z);
+      for (let i = 0; i < positions.length; i += 3) {
+        const x = positions[i];
+        const z = positions[i + 1];
+        positions[i + 2] = env.getHeight(x, z);
       }
 
       geometry.attributes.position.needsUpdate = true;
@@ -197,13 +190,11 @@
       animals = Array.from({ length: 20 }, () => new Animal(env));
     }
 
-    // Initialize everything when the window loads
     window.addEventListener("load", () => {
       simulate();
       initScene();
     });
 
-    // Handle window resizing
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
