@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Realistic 3D Animal Simulation Environment</title>
+  <title>Enhanced 3D Animal Simulation Environment</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
@@ -25,17 +25,36 @@
       background: rgba(0,0,0,0.7);
       padding: 10px;
       border-radius: 5px;
+      z-index: 1;
+    }
+    #controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 1;
     }
   </style>
 </head>
 <body>
   <div id="canvasContainer"></div>
-  <div id="info">3D Animal Simulation<br>Use mouse to orbit camera<br>Scroll to zoom</div>
+  <div id="info">Enhanced 3D Animal Simulation<br>Use mouse to orbit camera<br>Scroll to zoom</div>
+  <div id="controls">
+    <label>Animal Speed:</label>
+    <input type="range" id="speedControl" min="0.5" max="5" step="0.1" value="2">
+    <br>
+    <label>Terrain Complexity:</label>
+    <input type="range" id="terrainControl" min="0.1" max="1.5" step="0.1" value="1">
+  </div>
   
   <script>
     let scene, camera, renderer, controls, clock;
-    let env, animals;
-    
+    let env, animals, skybox;
+    let animalSpeed = 2, terrainComplexity = 1;
+
     class Environment {
       constructor(size) {
         this.size = size;
@@ -43,8 +62,8 @@
       }
 
       getHeight(x, y) {
-        // Generate height using noise for realistic terrain
-        return this.simplex.noise2D(x / 10, y / 10) * 5;
+        // Generate height using noise, scaled by terrain complexity
+        return this.simplex.noise2D(x * terrainComplexity / 10, y * terrainComplexity / 10) * 5;
       }
     }
 
@@ -60,17 +79,30 @@
       }
 
       createMesh() {
-        const bodyGeometry = new THREE.SphereGeometry(0.5, 16, 16);
         const bodyMaterial = new THREE.MeshPhongMaterial({ color: this.getRandomColor() });
         this.mesh = new THREE.Group();
-        
+
+        // Body
+        const bodyGeometry = new THREE.SphereGeometry(0.5, 16, 16);
         const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
         this.mesh.add(body);
 
+        // Head
         const headGeometry = new THREE.SphereGeometry(0.3, 16, 16);
         const head = new THREE.Mesh(headGeometry, bodyMaterial);
         head.position.set(0.5, 0.2, 0);
         this.mesh.add(head);
+
+        // Legs
+        this.legs = [];
+        for (let i = 0; i < 4; i++) {
+          const legGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.5, 8);
+          const leg = new THREE.Mesh(legGeometry, bodyMaterial);
+          leg.position.set((i < 2 ? -0.3 : 0.3), -0.3, (i % 2 === 0 ? -0.3 : 0.3));
+          leg.rotation.x = Math.PI / 2;
+          this.legs.push(leg);
+          this.mesh.add(leg);
+        }
 
         this.mesh.castShadow = true;
         scene.add(this.mesh);
@@ -88,21 +120,26 @@
         const height = this.environment.getHeight(x, z);
         this.mesh.position.set(x, height + 0.5, z);
         this.mesh.rotation.y = this.rotation;
+
+        // Animate legs
+        const time = clock.getElapsedTime();
+        this.legs.forEach((leg, index) => {
+          leg.rotation.z = Math.sin(time * 10 + index) * 0.5;
+        });
       }
 
       move(delta) {
-        const speed = 2;
         const angle = this.rotation;
-        this.position[0] += Math.cos(angle) * speed * delta;
-        this.position[1] += Math.sin(angle) * speed * delta;
+        this.position[0] += Math.cos(angle) * animalSpeed * delta;
+        this.position[1] += Math.sin(angle) * animalSpeed * delta;
         
         this.position = this.position.map(pos => {
           if (pos < 0) pos += this.environment.size;
           if (pos >= this.environment.size) pos -= this.environment.size;
           return pos;
         });
-        
-        this.rotation += (Math.random() - 0.5) * delta;
+
+        this.rotation += (Math.random() - 0.5) * delta * 2;
       }
     }
 
@@ -122,7 +159,6 @@
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
-      controls.update();
 
       const light = new THREE.DirectionalLight(0xffffff, 1);
       light.position.set(10, 20, 10);
@@ -138,6 +174,7 @@
 
       createTerrain();
       createAnimals();
+      createSkybox();
       animate();
     }
 
@@ -167,9 +204,17 @@
     }
 
     function createAnimals() {
-      animals.forEach(animal => {
-        animal.createMesh();
-      });
+      animals.forEach(animal => animal.createMesh());
+    }
+
+    function createSkybox() {
+      const skyboxLoader = new THREE.CubeTextureLoader();
+      skybox = skyboxLoader.load([
+        'skybox_px.jpg', 'skybox_nx.jpg',
+        'skybox_py.jpg', 'skybox_ny.jpg',
+        'skybox_pz.jpg', 'skybox_nz.jpg',
+      ]);
+      scene.background = skybox;
     }
 
     function animate() {
@@ -190,17 +235,29 @@
       animals = Array.from({ length: 20 }, () => new Animal(env));
     }
 
+    // Initialize simulation on load
     window.addEventListener("load", () => {
       simulate();
       initScene();
     });
 
+    // Handle resizing
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
+
+    // Control panel listeners
+    document.getElementById("speedControl").addEventListener("input", (e) => {
+      animalSpeed = parseFloat(e.target.value);
+    });
+
+    document.getElementById("terrainControl").addEventListener("input", (e) => {
+      terrainComplexity = parseFloat(e.target.value);
+      scene.remove(scene.children.find(child => child.isMesh));
+      createTerrain();
+    });
   </script>
 </body>
 </html>
-
