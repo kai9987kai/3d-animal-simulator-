@@ -14,14 +14,7 @@ Dynamic Day/Night and Weather Cycles: The environment simulates realistic day/ni
 
 Environmental Adaptation and Memory Sharing: Agents store and share memory of environmental features, creating an evolving knowledge base that enriches the agents' awareness of the environment over time.
 
-Installation
-Clone the repository:
 
-bash
-Copy code
-git clone https://github.com/yourusername/diamond-hybrid-agent-simulation.git
-cd diamond-hybrid-agent-simulation
-Install dependencies:
 
 Three.js: For 3D rendering
 TensorFlow.js: For neural network components
